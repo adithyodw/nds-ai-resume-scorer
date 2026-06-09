@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Candidate, CandidateStatus } from "@/lib/types";
 import {
-  fetchCandidates,
   updateCandidateStatus,
   deleteCandidates,
   scheduleCandidateInterview,
@@ -30,10 +29,16 @@ export function TalentScoreApp() {
   const [drawer, setDrawer] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
-  const loadCandidates = useCallback(async () => {
+  const loadCandidates = useCallback(async (opts?: { force?: boolean }) => {
     try {
-      const list = await fetchCandidates();
-      setCandidates(list);
+      const res = await fetch("/api/candidates", { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load candidates");
+      const data = await res.json();
+      const list = data.candidates as Candidate[];
+      setCandidates((prev) => {
+        if (!opts?.force && list.length === 0 && prev.length > 0) return prev;
+        return list;
+      });
     } catch {
       /* keep existing list on transient errors */
     } finally {
@@ -63,7 +68,7 @@ export function TalentScoreApp() {
   // Refresh live data when returning to data-heavy views.
   useEffect(() => {
     if (view === "dashboard" || view === "database" || view === "analytics") {
-      loadCandidates();
+      loadCandidates({ force: true });
     }
   }, [view, loadCandidates]);
 
@@ -133,7 +138,7 @@ export function TalentScoreApp() {
         const updated = await updateCandidateStatus(id, status);
         mergeCandidate(updated);
       } catch {
-        loadCandidates();
+        loadCandidates({ force: true });
       }
     },
     [loadCandidates, mergeCandidate]
@@ -180,7 +185,7 @@ export function TalentScoreApp() {
           window.open(fallback, "_blank", "noopener,noreferrer");
         }
       } catch {
-        loadCandidates();
+        loadCandidates({ force: true });
       }
     },
     [loadCandidates, mergeCandidate]
@@ -213,7 +218,7 @@ export function TalentScoreApp() {
     try {
       await deleteCandidates(ids);
     } catch {
-      loadCandidates();
+      loadCandidates({ force: true });
     }
   }, [compareSet, active, loadCandidates]);
 
@@ -221,8 +226,8 @@ export function TalentScoreApp() {
     async (added: Candidate[]) => {
       if (!added.length) return;
       try {
-        const list = await fetchCandidates();
-        setCandidates(list);
+        await loadCandidates({ force: true });
+        return;
       } catch {
         setCandidates((cs) => {
           const ids = new Set(cs.map((c) => c.id));

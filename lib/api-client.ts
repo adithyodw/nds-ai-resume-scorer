@@ -1,7 +1,7 @@
 import type { Candidate, CandidateStatus } from "./types";
 
 export async function fetchCandidates(): Promise<Candidate[]> {
-  const res = await fetch("/api/candidates");
+  const res = await fetch("/api/candidates", { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load candidates");
   const data = await res.json();
   return data.candidates as Candidate[];

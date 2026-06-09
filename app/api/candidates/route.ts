@@ -1,13 +1,16 @@
 /* GET /api/candidates — full candidate list.
    DELETE /api/candidates — bulk delete { ids: string[] } */
 import { NextResponse } from "next/server";
-import { listCandidates, removeCandidates } from "@/lib/store";
+import { listCandidates, removeCandidates, storageMisconfigured } from "@/lib/store";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const candidates = await listCandidates();
-  return NextResponse.json({ candidates });
+  return NextResponse.json(
+    { candidates, storageWarning: storageMisconfigured() ? "blob_not_configured" : null },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 export async function DELETE(req: Request) {

@@ -17,7 +17,7 @@ Built with **zero paid API cost** for core functionality — a deterministic rul
 
 - **Frontend:** Next.js 16, TypeScript, Tailwind CSS 4
 - **Backend:** Next.js API routes (simple, no separate server)
-- **Storage:** JSON file (`.data/candidates.json`) — swap `lib/store.ts` for Postgres later
+- **Storage:** Vercel Blob in production; local `.data/candidates.json` for dev
 - **Parsing:** `unpdf` (PDF), `mammoth` (DOCX), `jszip` (ZIP)
 - **AI:** Rule-based engine (`lib/scoring/`) — optional OpenAI/Anthropic for narrative only
 
@@ -71,9 +71,15 @@ lib/
 design-reference/     # Original Claude Code UI prototype (reference only)
 ```
 
-## Deploy
+## Deploy (Vercel)
 
-Works on Vercel. For persistent storage on serverless, replace `lib/store.ts` with a database (Neon Postgres, Supabase, etc.) or use Vercel Blob for the JSON file.
+Uploaded CVs **must** use durable storage on serverless. Connect **Vercel Blob** to the project:
+
+1. Vercel Dashboard → your project → **Storage** → **Create Database** → **Blob**
+2. Connect the store to `nds-ai-resume-scorer` — this sets `BLOB_READ_WRITE_TOKEN` automatically
+3. Redeploy
+
+Without Blob, uploads only survive the current serverless instance and disappear on navigation.
 
 ```bash
 npm run build

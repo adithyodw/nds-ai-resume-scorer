@@ -1,48 +1,50 @@
 /* ============================================================
    NDS TalentScore — candidate store
-   Dependency-free persistence: a JSON file under .data/ with an
-   in-memory cache. Seeded on first run. Swap this module for a
-   Postgres/Prisma repository later without touching callers.
+   Persists to Vercel Blob in production (survives serverless).
+   Falls back to .data/candidates.json for local development.
    ============================================================ */
 
-import { promises as fs } from "fs";
-import path from "path";
 import type { Candidate, CandidateStatus } from "./types";
 import { SEED_CANDIDATES } from "./seed";
+import {
+  isVercelRuntime,
+  loadCandidates as readStore,
+  saveCandidates,
+  useBlobStore,
+} from "./persistence";
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const DATA_FILE = path.join(DATA_DIR, "candidates.json");
-
-// Module-level cache survives across requests in a single server process.
-let cache: Candidate[] | null = null;
-let writable = true;
+// Local filesystem cache only — never used when Blob is active.
+let fileCache: Candidate[] | null = null;
 
 async function load(): Promise<Candidate[]> {
-  if (cache) return cache;
-  try {
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    cache = JSON.parse(raw) as Candidate[];
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") {
-      cache = SEED_CANDIDATES.map((c) => ({ ...c }));
-      await persist();
-    } else {
-      cache = [];
-    }
+  if (useBlobStore()) {
+    return readStore();
   }
-  return cache;
+
+  if (fileCache) return fileCache;
+
+  const stored = await readStore();
+  if (stored.length > 0) {
+    fileCache = stored;
+    return fileCache;
+  }
+
+  // First local run: optional demo seed (never on Vercel).
+  if (!isVercelRuntime() && process.env.NODE_ENV === "development") {
+    fileCache = SEED_CANDIDATES.map((c) => ({ ...c }));
+    await saveCandidates(fileCache);
+    return fileCache;
+  }
+
+  fileCache = [];
+  return fileCache;
 }
 
-async function persist(): Promise<void> {
-  if (!writable || !cache) return;
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(DATA_FILE, JSON.stringify(cache, null, 2), "utf8");
-  } catch {
-    // read-only FS (e.g. serverless) — keep working from the in-memory cache.
-    writable = false;
+async function persist(next: Candidate[]): Promise<void> {
+  if (!useBlobStore()) {
+    fileCache = next;
   }
+  await saveCandidates(next);
 }
 
 export async function listCandidates(): Promise<Candidate[]> {
@@ -58,9 +60,9 @@ export async function addCandidates(incoming: Candidate[]): Promise<Candidate[]>
   const list = await load();
   const existingIds = new Set(list.map((c) => c.id));
   const fresh = incoming.filter((c) => !existingIds.has(c.id));
-  cache = [...fresh, ...list];
-  await persist();
-  return [...cache];
+  const next = [...fresh, ...list];
+  await persist(next);
+  return [...next];
 }
 
 function withStatus(c: Candidate, status: CandidateStatus): Candidate {
@@ -78,8 +80,7 @@ export async function setStatus(
 ): Promise<Candidate | undefined> {
   const list = await load();
   const next = list.map((c) => (c.id === id ? withStatus(c, status) : c));
-  cache = next;
-  await persist();
+  await persist(next);
   return next.find((c) => c.id === id);
 }
 
@@ -96,15 +97,13 @@ export async function scheduleCandidate(id: string): Promise<Candidate | undefin
       scheduledAt: now,
     };
   });
-  cache = next;
-  await persist();
+  await persist(next);
   return next.find((c) => c.id === id);
 }
 
 export async function removeCandidate(id: string): Promise<void> {
   const list = await load();
-  cache = list.filter((c) => c.id !== id);
-  await persist();
+  await persist(list.filter((c) => c.id !== id));
 }
 
 /** Remove multiple candidates by id; returns how many were deleted. */
@@ -114,7 +113,11 @@ export async function removeCandidates(ids: string[]): Promise<number> {
   const list = await load();
   const next = list.filter((c) => !drop.has(c.id));
   const removed = list.length - next.length;
-  cache = next;
-  await persist();
+  await persist(next);
   return removed;
+}
+
+/** True when running on Vercel without durable storage configured. */
+export function storageMisconfigured(): boolean {
+  return isVercelRuntime() && !useBlobStore();
 }
