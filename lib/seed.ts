@@ -1,0 +1,169 @@
+/* ============================================================
+   NDS TalentScore — seed data
+   Ported from the design prototype (data.js). Realistic SI
+   hiring pipeline (Indonesia / ASEAN). Seeds an empty store.
+   ============================================================ */
+
+import type { Candidate, CertHeat, FunnelStage, Kpis, RoleDemand } from "./types";
+
+const cert = (name: string, level: string, active = true) => ({ name, level, active });
+
+export const SEED_CANDIDATES: Candidate[] = [
+  {
+    id: "c-001", name: "Arif Rahmansyah", initials: "AR",
+    title: "Senior Network Security Engineer", role: "Presales Network Security Engineer",
+    location: "Jakarta, ID", experience: 9, noticeDays: 30, salaryExpect: 38,
+    status: "shortlisted", appliedAgo: "2d", match: 94, recommendation: "STRONG",
+    confidence: 96, seniority: "Senior", salaryBand: "32–42 jt",
+    scores: { technical: 95, certification: 92, experience: 93, communication: 90, quality: 88 },
+    radar: [88, 96, 82, 74, 92, 80],
+    certs: [cert("Fortinet NSE 7", "Expert"), cert("PCNSE", "Professional"), cert("CCNP Security", "Professional"), cert("CCNA", "Associate")],
+    skills: ["Fortinet FortiGate", "Palo Alto", "Check Point", "BGP/OSPF", "SD-WAN", "Firewall Migration", "Zero Trust", "Python"],
+    highlights: ["Led FortiGate migration for national bank (1,200 sites)", "Presales lead on 14 enterprise security bids, 71% win rate", "Designed Zero Trust reference architecture for telco client"],
+    gaps: ["Limited public cloud security (CSPM) exposure", "No formal CISSP yet"],
+    summary: "Exceptional presales security profile with deep multi-vendor firewall expertise and a proven enterprise bid track record. Strong client-facing communication. Cloud security is the only meaningful gap for the role.",
+  },
+  {
+    id: "c-002", name: "Siti Nurhaliza", initials: "SN",
+    title: "Network Solutions Consultant", role: "Presales Network Security Engineer",
+    location: "Bandung, ID", experience: 7, noticeDays: 60, salaryExpect: 33,
+    status: "shortlisted", appliedAgo: "1d", match: 89, recommendation: "HIRE",
+    confidence: 90, seniority: "Senior", salaryBand: "28–36 jt",
+    scores: { technical: 88, certification: 86, experience: 84, communication: 94, quality: 91 },
+    radar: [84, 88, 78, 70, 95, 78],
+    certs: [cert("PCNSE", "Professional"), cert("NSE 4", "Professional"), cert("CCNP Enterprise", "Professional"), cert("ITIL v4", "Foundation")],
+    skills: ["Palo Alto", "Fortinet", "SD-WAN", "Routing & Switching", "Solution Design", "Bid Management", "Stakeholder Mgmt"],
+    highlights: ["Owned solution design for 9 government tenders in 2025", "Highest customer-satisfaction score in presales team (4.8/5)", "Built reusable BoM/HLD templates adopted org-wide"],
+    gaps: ["Automation/scripting depth limited", "Notice period 60 days"],
+    summary: "Standout client-facing consultant with the strongest communication score in the pipeline. Excellent solution design discipline. Slightly lighter on automation and a longer notice period.",
+  },
+  {
+    id: "c-003", name: "Budi Santoso", initials: "BS",
+    title: "Lead Network Engineer", role: "Network Engineer Team Lead",
+    location: "Surabaya, ID", experience: 12, noticeDays: 30, salaryExpect: 45,
+    status: "review", appliedAgo: "3d", match: 91, recommendation: "STRONG",
+    confidence: 93, seniority: "Lead", salaryBand: "40–52 jt",
+    scores: { technical: 93, certification: 95, experience: 96, communication: 85, quality: 86 },
+    radar: [96, 84, 80, 82, 76, 94],
+    certs: [cert("CCIE Enterprise", "Expert"), cert("CCNP", "Professional"), cert("AWS SA Associate", "Associate"), cert("PMP", "Professional")],
+    skills: ["BGP/MPLS", "Cisco", "Juniper", "SD-WAN", "Team Leadership", "Network Automation", "Ansible", "Project Delivery"],
+    highlights: ["CCIE-certified; led 18-engineer NOC team for managed services", "Delivered MPLS backbone for regional telco (ASEAN)", "Reduced incident MTTR 42% via automation playbooks"],
+    gaps: ["Security specialization lighter than networking", "Presentation polish for exec audiences"],
+    summary: "Premier networking leader — CCIE plus 12 years and a strong delivery record make this a clear team-lead candidate. Communication is solid but exec-presentation polish is the growth area.",
+  },
+  {
+    id: "c-004", name: "Dewi Lestari", initials: "DL",
+    title: "Cloud Infrastructure Engineer", role: "Cloud Engineer",
+    location: "Jakarta, ID", experience: 6, noticeDays: 30, salaryExpect: 36,
+    status: "new", appliedAgo: "5h", match: 86, recommendation: "HIRE",
+    confidence: 88, seniority: "Mid-Senior", salaryBand: "30–38 jt",
+    scores: { technical: 90, certification: 84, experience: 78, communication: 82, quality: 89 },
+    radar: [70, 76, 95, 90, 72, 66],
+    certs: [cert("AWS Solutions Architect Pro", "Professional"), cert("Azure Administrator", "Associate"), cert("CKA Kubernetes", "Professional"), cert("Terraform Associate", "Associate")],
+    skills: ["AWS", "Azure", "Kubernetes", "Terraform", "VMware", "Python", "CI/CD", "Cloud Networking"],
+    highlights: ["Migrated 60+ workloads to AWS for manufacturing client", "Built IaC platform (Terraform) standardizing 4 environments", "K8s cluster operations across hybrid data centers"],
+    gaps: ["Limited traditional R&S / security depth", "Fewer years than senior peers"],
+    summary: "Strong modern-cloud profile with excellent automation and IaC skills. Best-in-pipeline for cloud and DevOps work. Less suited to classic network-security presales.",
+  },
+  {
+    id: "c-005", name: "Rizki Pratama", initials: "RP",
+    title: "SOC Analyst L2", role: "SOC Engineer",
+    location: "Jakarta, ID", experience: 5, noticeDays: 14, salaryExpect: 28,
+    status: "new", appliedAgo: "8h", match: 82, recommendation: "HIRE",
+    confidence: 84, seniority: "Mid", salaryBand: "24–32 jt",
+    scores: { technical: 85, certification: 80, experience: 76, communication: 78, quality: 83 },
+    radar: [64, 92, 70, 78, 60, 58],
+    certs: [cert("Fortinet NSE 5", "Professional"), cert("CEH", "Professional"), cert("Splunk Core User", "Associate"), cert("CompTIA Security+", "Associate")],
+    skills: ["SIEM / Splunk", "FortiAnalyzer", "Incident Response", "Threat Hunting", "EDR", "MITRE ATT&CK", "Python"],
+    highlights: ["L2 SOC analyst handling 24/7 monitoring for 30+ tenants", "Authored 40+ correlation rules reducing false positives 35%", "Short 14-day notice period"],
+    gaps: ["Networking architecture depth still developing", "No leadership experience yet"],
+    summary: "Solid SOC operator with hands-on SIEM and IR experience and the shortest notice period in the pool. A reliable hire for security operations rather than presales.",
+  },
+  {
+    id: "c-006", name: "Maya Anggraini", initials: "MA",
+    title: "Presales Engineer", role: "Presales Network Engineer",
+    location: "Jakarta, ID", experience: 4, noticeDays: 30, salaryExpect: 26,
+    status: "new", appliedAgo: "1d", match: 78, recommendation: "CONSIDER",
+    confidence: 80, seniority: "Mid", salaryBand: "22–28 jt",
+    scores: { technical: 76, certification: 72, experience: 68, communication: 88, quality: 84 },
+    radar: [74, 64, 66, 58, 86, 60],
+    certs: [cert("CCNA", "Associate"), cert("NSE 4", "Professional"), cert("Aruba ACMA", "Associate")],
+    skills: ["Routing & Switching", "Aruba", "FortiGate basics", "Solution Demos", "Proposal Writing", "Cisco"],
+    highlights: ["Rising presales talent with strong demo and proposal skills", "Supported 20+ SMB opportunities in past year", "Excellent communication for early-career profile"],
+    gaps: ["Needs deeper security & enterprise architecture", "Only 4 years experience", "Certification ladder early"],
+    summary: "Promising junior presales engineer with great communication and growth trajectory. Currently better fit for SMB presales; would need mentoring for enterprise security scope.",
+  },
+  {
+    id: "c-007", name: "Hendra Wijaya", initials: "HW",
+    title: "Infrastructure Manager", role: "Infrastructure Manager",
+    location: "Tangerang, ID", experience: 14, noticeDays: 90, salaryExpect: 58,
+    status: "review", appliedAgo: "4d", match: 84, recommendation: "CONSIDER",
+    confidence: 82, seniority: "Manager", salaryBand: "52–68 jt",
+    scores: { technical: 80, certification: 78, experience: 95, communication: 88, quality: 80 },
+    radar: [82, 72, 84, 64, 84, 96],
+    certs: [cert("PMP", "Professional"), cert("ITIL v4 Managing", "Professional"), cert("CCNP", "Professional", false), cert("TOGAF", "Foundation")],
+    skills: ["Team Leadership", "P&L / Budgeting", "Data Center Ops", "Vendor Management", "ITIL", "Capacity Planning"],
+    highlights: ["Managed 35-person infrastructure org across 3 data centers", "Owned $4M annual infrastructure budget", "Strong governance, ITIL and vendor-management track record"],
+    gaps: ["Hands-on technical currency has faded", "90-day notice", "Expired CCNP", "High salary expectation"],
+    summary: "Experienced infrastructure leader strong on governance, budgeting and people. Hands-on technical currency and a long notice period plus high comp make this a considered, role-dependent fit.",
+  },
+  {
+    id: "c-008", name: "Putri Ayu", initials: "PA",
+    title: "Network Engineer", role: "Field Engineer",
+    location: "Semarang, ID", experience: 3, noticeDays: 14, salaryExpect: 18,
+    status: "new", appliedAgo: "2d", match: 71, recommendation: "CONSIDER",
+    confidence: 76, seniority: "Junior", salaryBand: "15–22 jt",
+    scores: { technical: 72, certification: 68, experience: 60, communication: 74, quality: 78 },
+    radar: [76, 60, 54, 50, 62, 48],
+    certs: [cert("CCNA", "Associate"), cert("FCF Fortinet", "Foundation")],
+    skills: ["Routing & Switching", "Cabling / DC", "FortiGate basics", "Troubleshooting", "On-site Deployment"],
+    highlights: ["Hands-on field deployment across 40+ branch sites", "Quick learner; CCNA certified within first year", "Very competitive salary expectation"],
+    gaps: ["Junior — limited design/architecture experience", "Narrow certification base"],
+    summary: "Capable junior field engineer, ideal for deployment and on-site roles. Cost-effective and eager, but not yet ready for presales or design responsibilities.",
+  },
+  {
+    id: "c-009", name: "Fajar Nugroho", initials: "FN",
+    title: "Security Engineer", role: "Post-Sales Security Engineer",
+    location: "Jakarta, ID", experience: 8, noticeDays: 45, salaryExpect: 35,
+    status: "rejected", appliedAgo: "6d", match: 64, recommendation: "WEAK",
+    confidence: 79, seniority: "Senior", salaryBand: "30–38 jt",
+    scores: { technical: 70, certification: 66, experience: 80, communication: 58, quality: 54 },
+    radar: [68, 74, 56, 48, 44, 60],
+    certs: [cert("NSE 4", "Professional"), cert("CCNA Security", "Associate", false), cert("CEH", "Professional", false)],
+    skills: ["FortiGate", "VPN", "Firewall Ops", "Patch Management", "Linux"],
+    highlights: ["Eight years of security operations and firewall administration", "Strong hands-on FortiGate and VPN troubleshooting"],
+    gaps: ["Resume poorly structured, low ATS score", "Weak communication signals", "Two expired certifications", "No recent enterprise projects"],
+    summary: "Experienced operator on paper, but resume quality and communication signals are weak and key certifications have lapsed. Below bar for the current security presales requirement.",
+  },
+];
+
+export const SEED_FUNNEL: FunnelStage[] = [
+  { stage: "Applied", value: 248 },
+  { stage: "AI Screened", value: 186 },
+  { stage: "Shortlisted", value: 42 },
+  { stage: "Interview", value: 18 },
+  { stage: "Offer", value: 6 },
+  { stage: "Hired", value: 3 },
+];
+
+export const SEED_ROLE_DEMAND: RoleDemand[] = [
+  { role: "Presales Network Security Eng.", open: 4, candidates: 38, avg: 81 },
+  { role: "SOC Engineer", open: 3, candidates: 29, avg: 76 },
+  { role: "Cloud Engineer", open: 2, candidates: 24, avg: 79 },
+  { role: "Network Engineer Team Lead", open: 1, candidates: 12, avg: 84 },
+  { role: "Field Engineer", open: 5, candidates: 51, avg: 68 },
+];
+
+export const SEED_CERT_HEAT: CertHeat[] = [
+  { cert: "CCNA", count: 142 }, { cert: "CCNP", count: 64 }, { cert: "CCIE", count: 7 },
+  { cert: "NSE 4–7", count: 88 }, { cert: "PCNSE", count: 31 }, { cert: "JNCIP", count: 12 },
+  { cert: "AWS", count: 47 }, { cert: "Azure", count: 39 }, { cert: "CISSP", count: 9 },
+  { cert: "CEH", count: 28 }, { cert: "PMP", count: 21 }, { cert: "CKA", count: 15 },
+];
+
+export const SEED_QUALITY_TREND = [72, 74, 73, 77, 79, 78, 82];
+
+export const SEED_KPIS: Kpis = {
+  candidates: 248, shortlisted: 42, avgScore: 81,
+  timeToShortlist: 2.4, openRoles: 15, aiProcessed: 186,
+};
