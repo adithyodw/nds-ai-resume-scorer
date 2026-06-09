@@ -2,15 +2,54 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Candidate } from "@/lib/types";
+import { ROLES } from "@/lib/rubrics";
 import { uploadResumes } from "@/lib/api-client";
 import { Icon, ScoreRing, RecBadge, scoreColor } from "./primitives";
 
 const PARSE_STAGES = [
   { key: "ocr", label: "Reading document", detail: "PDF/DOCX parsing · text extraction", icon: "doc", ms: 900 },
   { key: "entities", label: "Extracting entities", detail: "Skills · certifications · employers · tenure", icon: "search", ms: 1100 },
-  { key: "match", label: "Matching role model", detail: "SI scoring model v4.2 · role inference", icon: "sparkle", ms: 1000 },
+  { key: "match", label: "Matching role model", detail: "SI scoring model v4.2 · role benchmark", icon: "sparkle", ms: 1000 },
   { key: "score", label: "Scoring dimensions", detail: "Technical · Certification · Experience · Communication", icon: "bolt", ms: 1200 },
   { key: "rec", label: "Generating recommendation", detail: "Fit analysis · risk · salary band · summary", icon: "award", ms: 900 },
+];
+
+const ROLE_GROUPS: { label: string; roles: string[] }[] = [
+  {
+    label: "Presales",
+    roles: [
+      "Presales Network Security Engineer",
+      "Presales Network Engineer",
+      "Presales Security Consultant",
+      "Presales Team Lead",
+    ],
+  },
+  {
+    label: "Post-Sales / Delivery",
+    roles: [
+      "Post-Sales Network Engineer",
+      "Post-Sales Security Engineer",
+      "Field Engineer",
+      "Network Operations Engineer",
+    ],
+  },
+  {
+    label: "Security & Cloud",
+    roles: ["SOC Engineer", "Cloud Engineer", "Data Center Engineer", "Infrastructure Engineer"],
+  },
+  {
+    label: "Leadership",
+    roles: [
+      "Network Engineer Team Lead",
+      "Security Team Lead",
+      "Infrastructure Manager",
+      "Technical Project Lead",
+    ],
+  },
+  {
+    label: "Business",
+    roles: ["Sales Executive", "Account Manager", "Solution Sales Specialist", "HR Recruiter"],
+  },
 ];
 
 export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) => void }) {
@@ -19,9 +58,11 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
   const [stageProg, setStageProg] = useState(0);
   const [fileName, setFileName] = useState("");
   const [drag, setDrag] = useState(false);
-  const [result, setResult] = useState<Candidate | null>(null);
+  const [results, setResults] = useState<Candidate[]>([]);
+  const [failedCount, setFailedCount] = useState(0);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [targetRole, setTargetRole] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const rafRef = useRef(0);
   const startRef = useRef(0);
@@ -37,10 +78,12 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
     setStageIdx(0);
     setStageProg(0);
     setError("");
+    setResults([]);
+    setFailedCount(0);
     startRef.current = performance.now();
 
     try {
-      const res = await uploadResumes(list);
+      const res = await uploadResumes(list, targetRole || undefined);
       cancelAnimationFrame(rafRef.current);
       setElapsed(Math.round((performance.now() - startRef.current) / 100) / 10);
 
@@ -53,7 +96,8 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
 
       setStageIdx(PARSE_STAGES.length - 1);
       setStageProg(1);
-      setResult(res.added[0]);
+      setResults(res.added);
+      setFailedCount(res.summary.failed);
       setPhase("done");
     } catch (e) {
       cancelAnimationFrame(rafRef.current);
@@ -88,11 +132,56 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
 
   function reset() {
     setPhase("idle");
-    setResult(null);
+    setResults([]);
     setError("");
     setStageIdx(0);
     if (fileRef.current) fileRef.current.value = "";
   }
+
+  const roleSelector = (
+    <div className="panel fade-up" style={{ padding: 16, animationDelay: "40ms" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <Icon name="briefcase" size={18} style={{ color: "var(--ac-hi)" }} />
+        <div>
+          <div style={{ fontSize: 13.5, fontWeight: 700 }}>Target role for scoring</div>
+          <div style={{ fontSize: 12, color: "var(--tx-2)", marginTop: 2 }}>
+            Score all uploaded résumés against this role model. Leave auto-detect to let AI infer the best fit.
+          </div>
+        </div>
+      </div>
+      <select
+        value={targetRole}
+        onChange={(e) => setTargetRole(e.target.value)}
+        style={{
+          width: "100%",
+          height: 40,
+          padding: "0 12px",
+          borderRadius: 9,
+          border: "1px solid var(--line-2)",
+          background: "var(--bg-3)",
+          color: "var(--tx-0)",
+          fontSize: 13.5,
+          fontWeight: 500,
+        }}
+      >
+        <option value="">Auto-detect best role (recommended)</option>
+        {ROLE_GROUPS.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.roles.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+        {ROLES.filter((r) => !ROLE_GROUPS.some((g) => g.roles.includes(r))).map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   if (phase === "idle" || phase === "error") {
     return (
@@ -100,9 +189,11 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
         <div className="fade-up">
           <h2 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.02em" }}>Upload résumés for AI scoring</h2>
           <p style={{ fontSize: 13.5, color: "var(--tx-2)", marginTop: 4 }}>
-            Drop PDF, DOCX, or ZIP files. The SI scoring engine parses, scores across 5 dimensions, and recommends a role fit in seconds.
+            Drop PDF, DOCX, or ZIP files. Select a target role, then the SI engine scores each résumé across 5 dimensions.
           </p>
         </div>
+
+        {roleSelector}
 
         {error && (
           <div
@@ -175,7 +266,7 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
           {[
             { i: "doc", t: "Multi-format parsing", d: "PDF, DOCX & ZIP batch expansion" },
             { i: "shield", t: "Secure processing", d: "Local rule engine · no paid API required" },
-            { i: "bolt", t: "~6s per résumé", d: "Scored against the SI role model" },
+            { i: "bolt", t: "~6s per résumé", d: "Scored against the selected role model" },
           ].map((f, i) => (
             <div key={i} className="panel fade-up" style={{ padding: 16, animationDelay: `${120 + i * 60}ms` }}>
               <Icon name={f.i} size={18} style={{ color: "var(--ac-hi)" }} />
@@ -209,7 +300,9 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 700 }}>{fileName}</div>
-              <div style={{ fontSize: 12, color: "var(--tx-2)" }}>Analyzing with SI scoring model v4.2</div>
+              <div style={{ fontSize: 12, color: "var(--tx-2)" }}>
+                {targetRole ? `Scoring against: ${targetRole}` : "Auto-detecting best role fit"}
+              </div>
             </div>
             <div className="mono" style={{ fontSize: 22, fontWeight: 600, color: "var(--ac-hi)" }}>
               {Math.round(overall * 100)}%
@@ -297,10 +390,13 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
     );
   }
 
-  if (!result) return null;
+  if (results.length === 0) return null;
+
+  const single = results.length === 1;
+  const top = results[0];
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+    <div style={{ maxWidth: 820, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="panel pop-in" style={{ padding: 28, textAlign: "center" }}>
         <div
           style={{
@@ -316,45 +412,84 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
             marginBottom: 20,
           }}
         >
-          <Icon name="check" size={14} stroke={2.4} /> Scoring complete · {elapsed || "—"}s
+          <Icon name="check" size={14} stroke={2.4} />
+          {results.length} résumé{results.length > 1 ? "s" : ""} scored · {elapsed || "—"}s
+          {failedCount > 0 && ` · ${failedCount} failed`}
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, flexWrap: "wrap" }}>
-          <ScoreRing value={result.match} size={120} stroke={10} label="AI MATCH" />
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{result.name}</div>
-            <div style={{ fontSize: 13.5, color: "var(--tx-2)", marginBottom: 10 }}>
-              {result.title} · {result.location}
+
+        {single ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, flexWrap: "wrap" }}>
+              <ScoreRing value={top.match} size={120} stroke={10} label="AI MATCH" />
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{top.name}</div>
+                <div style={{ fontSize: 13.5, color: "var(--tx-2)", marginBottom: 10 }}>
+                  {top.title} · {top.location}
+                </div>
+                <RecBadge rec={top.recommendation} />
+                <div style={{ fontSize: 12, color: "var(--tx-3)", marginTop: 8 }}>Role: {top.role}</div>
+              </div>
             </div>
-            <RecBadge rec={result.recommendation} />
-            <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
-              {Object.entries(result.scores)
-                .slice(0, 3)
-                .map(([k, v]) => (
-                  <div key={k}>
-                    <div className="mono" style={{ fontSize: 17, fontWeight: 600, color: scoreColor(v) }}>
-                      {v}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "var(--tx-3)", textTransform: "capitalize" }}>{k}</div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-        <p style={{ fontSize: 13, color: "var(--tx-1)", lineHeight: 1.5, maxWidth: 520, margin: "22px auto 0" }}>
-          {result.summary}
-        </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24 }}>
+            <p style={{ fontSize: 13, color: "var(--tx-1)", lineHeight: 1.5, maxWidth: 520, margin: "22px auto 0" }}>
+              {top.summary}
+            </p>
+          </>
+        ) : (
+          <p style={{ fontSize: 13.5, color: "var(--tx-2)", marginBottom: 8 }}>
+            All candidates are in the database. Review scores below or open the full list.
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
           <button className="btn btn-ghost" onClick={reset}>
-            <Icon name="upload" size={16} /> Upload another
+            <Icon name="upload" size={16} /> Upload more
           </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => onComplete([result])}
-          >
-            <Icon name="eye" size={16} /> View full report
-          </button>
+          {single ? (
+            <button className="btn btn-primary" onClick={() => onComplete(results)}>
+              <Icon name="eye" size={16} /> View full report
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={() => onComplete(results)}>
+              <Icon name="database" size={16} /> View all in database
+            </button>
+          )}
         </div>
       </div>
+
+      {!single && (
+        <div className="panel" style={{ padding: 16 }}>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>Scored candidates</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }} className="scrollarea">
+            {results.map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 12px",
+                  borderRadius: 9,
+                  background: "var(--bg-3)",
+                  border: "1px solid var(--line)",
+                }}
+              >
+                <span className="mono" style={{ fontSize: 14, fontWeight: 600, color: scoreColor(c.match), width: 36 }}>
+                  {c.match}%
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.name}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--tx-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.role}
+                  </div>
+                </div>
+                <RecBadge rec={c.recommendation} size="sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

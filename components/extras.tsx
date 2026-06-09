@@ -3,8 +3,9 @@
 import { useMemo } from "react";
 import type { Candidate } from "@/lib/types";
 import { NDS } from "@/lib/nds-data";
+import { avgMatch, computeFunnel, computeRoleDemand, computeCertHeat } from "@/lib/stats";
 import { Icon, toneColor } from "./primitives";
-import { FunnelChart, Sparkline, CertHeatmap } from "./charts";
+import { FunnelChart, CertHeatmap } from "./charts";
 import { SectionCard } from "./section-card";
 
 function MetricTile({
@@ -49,19 +50,27 @@ export function Analytics({ candidates }: { candidates: Candidate[] }) {
     }));
   }, [candidates]);
   const total = candidates.length;
+  const funnel = useMemo(() => computeFunnel(candidates), [candidates]);
+  const roleDemand = useMemo(() => computeRoleDemand(candidates), [candidates]);
+  const certHeat = useMemo(() => computeCertHeat(candidates), [candidates]);
+  const avg = avgMatch(candidates);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 14 }}>
         <MetricTile label="Avg time to shortlist" value="2.4" suffix="d" sub="↓ 0.6d vs last quarter" tone="var(--pos)" />
-        <MetricTile label="AI screening coverage" value="100" suffix="%" sub={`${total} candidates scored`} />
+        <MetricTile label="AI screening coverage" value={total > 0 ? 100 : 0} suffix="%" sub={`${total} candidates scored`} />
         <MetricTile label="Shortlist precision" value="84" suffix="%" sub="advanced to interview" tone="var(--pos)" />
         <MetricTile label="Offer acceptance" value="71" suffix="%" sub="ASEAN benchmark 64%" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 18 }} className="dash-grid">
-        <SectionCard title="Hiring Funnel" sub="All open roles, last 90 days">
-          <FunnelChart data={NDS.funnel} />
+        <SectionCard title="Hiring Funnel" sub="Live pipeline from uploaded résumés">
+          {total === 0 ? (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--tx-2)", fontSize: 13 }}>No candidates yet.</div>
+          ) : (
+            <FunnelChart data={funnel} />
+          )}
         </SectionCard>
         <SectionCard title="AI Verdict Distribution" sub={`Across ${total} active candidates`}>
           <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
@@ -91,29 +100,20 @@ export function Analytics({ candidates }: { candidates: Candidate[] }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 18 }} className="dash-grid">
-        <SectionCard title="Candidate Quality Trend" sub="Avg incoming AI match">
-          <Sparkline data={NDS.qualityTrend} width={320} height={90} color="var(--pos)" />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginTop: 8,
-              fontSize: 10.5,
-              color: "var(--tx-3)",
-            }}
-          >
-            <span>Dec</span>
-            <span>Jan</span>
-            <span>Feb</span>
-            <span>Mar</span>
-            <span>Apr</span>
-            <span>May</span>
-            <span>Jun</span>
+        <SectionCard title="Candidate Quality" sub="Avg AI match in current pipeline">
+          <div className="mono" style={{ fontSize: 38, fontWeight: 600, letterSpacing: "-0.03em" }}>
+            {avg}<span style={{ fontSize: 18, color: "var(--tx-2)" }}>%</span>
           </div>
+          <div style={{ fontSize: 12, color: "var(--tx-2)", marginTop: 8 }}>Across {total} candidate{total !== 1 ? "s" : ""}</div>
         </SectionCard>
-        <SectionCard title="Role Demand" sub="Open requisitions & pipeline depth">
+        <SectionCard title="Role Breakdown" sub="Candidates by target role">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {NDS.roleDemand.map((r) => (
+            {roleDemand.length === 0 && (
+              <div style={{ fontSize: 13, color: "var(--tx-2)" }}>No role data yet.</div>
+            )}
+            {roleDemand.map((r) => {
+              const maxCount = roleDemand[0]?.candidates || 1;
+              return (
               <div key={r.role} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ width: 200, fontSize: 12.5, fontWeight: 600, color: "var(--tx-1)" }}>{r.role}</span>
                 <div
@@ -129,7 +129,7 @@ export function Analytics({ candidates }: { candidates: Candidate[] }) {
                   <div
                     className="fade-up"
                     style={{
-                      width: `${(r.candidates / 51) * 100}%`,
+                      width: `${(r.candidates / maxCount) * 100}%`,
                       height: "100%",
                       background: "linear-gradient(90deg, var(--ac-lo), var(--ac-hi))",
                       borderRadius: 6,
@@ -143,17 +143,22 @@ export function Analytics({ candidates }: { candidates: Candidate[] }) {
                     </span>
                   </div>
                 </div>
-                <span className="mono" style={{ fontSize: 12, color: "var(--warn)", width: 54, textAlign: "right" }}>
-                  {r.open} open
+                <span className="mono" style={{ fontSize: 12, color: "var(--tx-2)", width: 54, textAlign: "right" }}>
+                  {r.avg}% avg
                 </span>
               </div>
-            ))}
+            );
+            })}
           </div>
         </SectionCard>
       </div>
 
-      <SectionCard title="Certification Heatmap" sub="Frequency across the active candidate pool">
-        <CertHeatmap data={NDS.certHeat} />
+      <SectionCard title="Certification Heatmap" sub="From the current candidate pool">
+        {certHeat.length === 0 ? (
+          <div style={{ padding: 16, fontSize: 13, color: "var(--tx-2)" }}>No certifications detected yet.</div>
+        ) : (
+          <CertHeatmap data={certHeat} />
+        )}
       </SectionCard>
     </div>
   );

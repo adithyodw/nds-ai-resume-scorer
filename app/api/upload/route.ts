@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { NextResponse } from "next/server";
-import { parseUpload, isSupported } from "@/lib/parse";
+import { parseUpload, isSupported, type ParsedDoc } from "@/lib/parse";
 import { scoreResume, llmEnabled } from "@/lib/scoring";
 import { addCandidates } from "@/lib/store";
 import type { Candidate } from "@/lib/types";
@@ -13,7 +13,7 @@ import type { Candidate } from "@/lib/types";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25MB per file (ZIPs can be large)
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_FILES = 200;
 
 interface UploadItemResult {
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
   const roleHint = (form.get("role") as string) || undefined;
   const results: UploadItemResult[] = [];
-  const scored: Candidate[] = [];
+  const docs: ParsedDoc[] = [];
 
   for (const file of files) {
     if (!isSupported(file.name)) {
@@ -58,41 +58,42 @@ export async function POST(req: Request) {
       results.push({ fileName: file.name, ok: false, error: "File exceeds 25MB limit." });
       continue;
     }
-
     const buffer = Buffer.from(await file.arrayBuffer());
-    const docs = await parseUpload(file.name, buffer);
+    docs.push(...(await parseUpload(file.name, buffer)));
+  }
 
-    for (const doc of docs) {
-      if (doc.error || doc.text.trim().length < 40) {
-        results.push({
-          fileName: doc.fileName,
-          ok: false,
-          error: doc.error || "Could not extract enough text (scanned image without OCR?).",
-        });
-        continue;
-      }
-      try {
-        // Skip the LLM step for large batches to keep bulk uploads fast.
-        const candidate = await scoreResume(doc.text, doc.fileName, {
-          roleHint,
-          skipLLM: files.length > 8,
-        });
-        scored.push(candidate);
-        results.push({
-          fileName: doc.fileName,
-          ok: true,
-          candidateId: candidate.id,
-          name: candidate.name,
-          match: candidate.match,
-          recommendation: candidate.recommendation,
-        });
-      } catch (e) {
-        results.push({
-          fileName: doc.fileName,
-          ok: false,
-          error: e instanceof Error ? e.message : "Scoring failed.",
-        });
-      }
+  const scored: Candidate[] = [];
+  const batch = docs.length > 1;
+
+  for (const doc of docs) {
+    if (doc.error || doc.text.trim().length < 40) {
+      results.push({
+        fileName: doc.fileName,
+        ok: false,
+        error: doc.error || "Could not extract enough text (scanned image without OCR?).",
+      });
+      continue;
+    }
+    try {
+      const candidate = await scoreResume(doc.text, doc.fileName, {
+        roleHint,
+        skipLLM: batch,
+      });
+      scored.push(candidate);
+      results.push({
+        fileName: doc.fileName,
+        ok: true,
+        candidateId: candidate.id,
+        name: candidate.name,
+        match: candidate.match,
+        recommendation: candidate.recommendation,
+      });
+    } catch (e) {
+      results.push({
+        fileName: doc.fileName,
+        ok: false,
+        error: e instanceof Error ? e.message : "Scoring failed.",
+      });
     }
   }
 

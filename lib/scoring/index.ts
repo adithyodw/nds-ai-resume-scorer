@@ -13,7 +13,8 @@ export { llmEnabled };
 let counter = 0;
 function nextId(): string {
   counter += 1;
-  return `c-${Date.now().toString(36)}-${counter.toString(36)}`;
+  const rand = Math.random().toString(36).slice(2, 7);
+  return `c-${Date.now().toString(36)}-${counter.toString(36)}-${rand}`;
 }
 
 export interface ScoreOptions {

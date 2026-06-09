@@ -38,6 +38,13 @@ export function TalentScoreApp() {
     loadCandidates();
   }, [loadCandidates]);
 
+  // Refresh live data when returning to overview or candidate list.
+  useEffect(() => {
+    if (view === "dashboard" || view === "database") {
+      loadCandidates();
+    }
+  }, [view, loadCandidates]);
+
   useEffect(() => {
     const stored = localStorage.getItem("nds-theme") || "dark";
     setTheme(stored);
@@ -114,13 +121,23 @@ export function TalentScoreApp() {
   }, [compareSet, active, loadCandidates]);
 
   const completeUpload = useCallback(
-    (added: Candidate[]) => {
-      setCandidates((cs) => {
-        const ids = new Set(cs.map((c) => c.id));
-        const fresh = added.filter((c) => !ids.has(c.id));
-        return [...fresh, ...cs];
-      });
-      if (added[0]) openCandidate(added[0]);
+    async (added: Candidate[]) => {
+      if (!added.length) return;
+      try {
+        const list = await fetchCandidates();
+        setCandidates(list);
+      } catch {
+        setCandidates((cs) => {
+          const ids = new Set(cs.map((c) => c.id));
+          const fresh = added.filter((c) => !ids.has(c.id));
+          return [...fresh, ...cs];
+        });
+      }
+      if (added.length === 1) {
+        openCandidate(added[0]);
+      } else {
+        setView("database");
+      }
     },
     [openCandidate]
   );
