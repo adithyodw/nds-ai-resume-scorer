@@ -7,7 +7,9 @@ import {
   deleteCandidates,
   scheduleCandidateInterview,
   notifyWhatsApp,
+  restoreCandidates,
 } from "@/lib/api-client";
+import { readClientCache, writeClientCache } from "@/lib/client-cache";
 import { buildWhatsAppUrl, buildShortlistScheduleMessage, NOTIFY_PHONE } from "@/lib/whatsapp";
 import { Sidebar, Topbar } from "./shell";
 import { Dashboard } from "./dashboard";
@@ -29,22 +31,36 @@ export function TalentScoreApp() {
   const [drawer, setDrawer] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
-  const loadCandidates = useCallback(async (opts?: { force?: boolean }) => {
+  const loadCandidates = useCallback(async () => {
+    const cached = readClientCache();
     try {
       const res = await fetch("/api/candidates", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load candidates");
       const data = await res.json();
-      const list = data.candidates as Candidate[];
-      const storageWarning = Boolean(data.storageWarning);
-      setCandidates((prev) => {
-        if (list.length === 0 && prev.length > 0 && (!opts?.force || storageWarning)) {
-          return prev;
+      let list = data.candidates as Candidate[];
+
+      if (list.length === 0 && cached.length > 0) {
+        list = cached;
+        try {
+          await restoreCandidates(cached);
+          const retry = await fetch("/api/candidates", { cache: "no-store" });
+          if (retry.ok) {
+            const retryData = await retry.json();
+            if (retryData.candidates?.length) list = retryData.candidates as Candidate[];
+          }
+        } catch {
+          /* show cached list until server recovers */
         }
-        return list;
-      });
+      }
+
+      setCandidates(list);
+      if (list.length) writeClientCache(list);
       return list;
     } catch {
-      /* keep existing list on transient errors */
+      if (cached.length) {
+        setCandidates(cached);
+        return cached;
+      }
       return null;
     } finally {
       setLoading(false);
@@ -70,10 +86,14 @@ export function TalentScoreApp() {
     }
   }, [candidates, loading]);
 
+  useEffect(() => {
+    if (candidates.length) writeClientCache(candidates);
+  }, [candidates]);
+
   // Refresh live data when returning to data-heavy views.
   useEffect(() => {
     if (view === "dashboard" || view === "database" || view === "analytics") {
-      loadCandidates({ force: true });
+      loadCandidates();
     }
   }, [view, loadCandidates]);
 
@@ -143,7 +163,7 @@ export function TalentScoreApp() {
         const updated = await updateCandidateStatus(id, status);
         mergeCandidate(updated);
       } catch {
-        loadCandidates({ force: true });
+        loadCandidates();
       }
     },
     [loadCandidates, mergeCandidate]
@@ -151,49 +171,38 @@ export function TalentScoreApp() {
 
   const scheduleInterview = useCallback(
     async (id: string) => {
+      const base = candidates.find((c) => c.id === id) ?? active;
+      if (!base) return;
+
       const now = new Date().toISOString();
-      setCandidates((cs) =>
-        cs.map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                status: "shortlisted" as CandidateStatus,
-                shortlistedAt: c.shortlistedAt ?? now,
-                scheduledAt: now,
-              }
-            : c
-        )
-      );
-      setActive((a) =>
-        a && a.id === id
-          ? {
-              ...a,
-              status: "shortlisted",
-              shortlistedAt: a.shortlistedAt ?? now,
-              scheduledAt: now,
-            }
-          : a
-      );
+      const origin = window.location.origin;
+      const preview: Candidate = {
+        ...base,
+        status: "shortlisted",
+        shortlistedAt: base.shortlistedAt ?? now,
+        scheduledAt: now,
+      };
+
+      const waUrl = buildWhatsAppUrl(NOTIFY_PHONE, buildShortlistScheduleMessage(preview, origin));
+      window.open(waUrl, "_blank", "noopener,noreferrer");
+
+      setCandidates((cs) => cs.map((c) => (c.id === id ? preview : c)));
+      setActive((a) => (a && a.id === id ? preview : a));
+
       try {
         const updated = await scheduleCandidateInterview(id);
-        mergeCandidate(updated);
-
-        const origin = window.location.origin;
-        try {
-          const { waUrl, sent } = await notifyWhatsApp(id, origin);
-          if (!sent) window.open(waUrl, "_blank", "noopener,noreferrer");
-        } catch {
-          const fallback = buildWhatsAppUrl(
-            NOTIFY_PHONE,
-            buildShortlistScheduleMessage(updated, origin)
-          );
-          window.open(fallback, "_blank", "noopener,noreferrer");
-        }
+        setCandidates((cs) => {
+          const next = cs.map((c) => (c.id === id ? updated : c));
+          writeClientCache(next);
+          return next;
+        });
+        setActive((a) => (a && a.id === id ? updated : a));
+        void notifyWhatsApp(id, origin);
       } catch {
-        loadCandidates({ force: true });
+        loadCandidates();
       }
     },
-    [loadCandidates, mergeCandidate]
+    [candidates, active, loadCandidates, mergeCandidate]
   );
 
   const toggleSel = useCallback((id: string) => {
@@ -223,7 +232,7 @@ export function TalentScoreApp() {
     try {
       await deleteCandidates(ids);
     } catch {
-      loadCandidates({ force: true });
+      loadCandidates();
     }
   }, [compareSet, active, loadCandidates]);
 
@@ -234,7 +243,9 @@ export function TalentScoreApp() {
       setCandidates((cs) => {
         const ids = new Set(cs.map((c) => c.id));
         const fresh = added.filter((c) => !ids.has(c.id));
-        return [...fresh, ...cs];
+        const next = [...fresh, ...cs];
+        writeClientCache(next);
+        return next;
       });
 
       if (added.length === 1) {
@@ -245,7 +256,7 @@ export function TalentScoreApp() {
         setView("database");
       }
 
-      const list = await loadCandidates({ force: true });
+      const list = await loadCandidates();
       if (added.length === 1 && list?.length) {
         const synced = list.find((c) => c.id === added[0].id) ?? added[0];
         setActive(synced);

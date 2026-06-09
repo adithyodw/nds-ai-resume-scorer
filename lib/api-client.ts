@@ -32,6 +32,17 @@ export async function scheduleCandidateInterview(id: string): Promise<Candidate>
   return data.candidate as Candidate;
 }
 
+export async function restoreCandidates(candidates: Candidate[]): Promise<number> {
+  const res = await fetch("/api/candidates/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidates }),
+  });
+  if (!res.ok) throw new Error("Failed to restore candidates");
+  const data = await res.json();
+  return data.count as number;
+}
+
 export async function notifyWhatsApp(
   candidateId: string,
   origin: string

@@ -142,17 +142,44 @@ function confidenceFor(f: ResumeFeatures): number {
   return clamp(55 + signal, 55, 98);
 }
 
-function salaryBandFor(years: number, seniority: Seniority): { band: string; expect: number } {
+function salaryBandFor(
+  years: number,
+  seniority: Seniority,
+  location: string
+): { band: string; expect: number } {
+  const loc = location.toLowerCase();
+
+  if (loc.includes("singapore")) {
+    const table: Record<Seniority, [number, number]> = {
+      Junior: [3500, 5500],
+      Mid: [5500, 8000],
+      "Mid-Senior": [7500, 10500],
+      Senior: [9000, 13000],
+      Lead: [11000, 16000],
+      Manager: [14000, 22000],
+    };
+    const [lo, hi] = table[seniority];
+    const expect = Math.round((lo + hi) / 2);
+    return {
+      band: `S$${Math.round(lo / 100) / 10}–${Math.round(hi / 100) / 10}k/mo`,
+      expect,
+    };
+  }
+
   const table: Record<Seniority, [number, number]> = {
-    Junior: [15, 22],
-    Mid: [22, 30],
-    "Mid-Senior": [28, 38],
-    Senior: [32, 44],
-    Lead: [40, 54],
-    Manager: [50, 68],
+    Junior: [8, 14],
+    Mid: [14, 22],
+    "Mid-Senior": [20, 30],
+    Senior: [26, 40],
+    Lead: [36, 52],
+    Manager: [45, 65],
   };
-  const [lo, hi] = table[seniority];
-  return { band: `${lo}–${hi} jt`, expect: Math.round((lo + hi) / 2) };
+  let [lo, hi] = table[seniority];
+  const adj = Math.max(-4, Math.min(4, Math.round((years - 6) * 0.6)));
+  lo = Math.max(6, lo + adj);
+  hi = Math.max(lo + 3, hi + adj);
+  const expect = Math.round((lo + hi) / 2);
+  return { band: `${lo}–${hi} jt/mo`, expect };
 }
 
 function buildNarrative(
@@ -222,7 +249,7 @@ export function scoreFromFeatures(
   const match = overallMatch(scores);
   const rec = recommendationFor(match, f, scores);
   const seniority = seniorityFor(f.years);
-  const { band, expect } = salaryBandFor(f.years, seniority);
+  const { band, expect } = salaryBandFor(f.years, seniority, f.location);
   const { highlights, gaps, summary, suggestions } = buildNarrative(f, role, scores, rec);
 
   return {

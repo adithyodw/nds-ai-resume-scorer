@@ -121,3 +121,12 @@ export async function removeCandidates(ids: string[]): Promise<number> {
 export function storageMisconfigured(): boolean {
   return isVercelRuntime() && !useBlobStore();
 }
+
+/** Restore candidates only when the server store is empty (client cache recovery). */
+export async function restoreIfEmpty(incoming: Candidate[]): Promise<Candidate[]> {
+  if (!incoming.length) return listCandidates();
+  const existing = await load();
+  if (existing.length > 0) return existing;
+  await persist(incoming);
+  return [...incoming];
+}

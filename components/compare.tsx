@@ -187,7 +187,15 @@ export function CompareView({
       fmt: (c) => c.certs.filter((x) => x.active).length,
       best: "max",
     },
-    { key: "salary", label: "Salary Expect.", fmt: (c) => c.salaryExpect, suffix: " jt", best: "min" },
+    {
+      key: "salary",
+      label: "Salary band",
+      render: (c) => (
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+          {c.salaryBand.includes("S$") ? c.salaryBand : `${c.salaryExpect} jt/mo`}
+        </span>
+      ),
+    },
     { key: "notice", label: "Notice Period", fmt: (c) => c.noticeDays, suffix: "d", best: "min" },
   ];
 

@@ -11,6 +11,7 @@ import {
   ENTERPRISE_KEYWORDS,
   ACHIEVEMENT_WORDS,
 } from "../rubrics";
+import { detectYearsOfExperience } from "./experience";
 
 export interface ExtractedCert {
   name: string;
@@ -88,25 +89,6 @@ function detectName(lines: string[], fileName: string): string {
   }
   const fromFile = titleCaseFromFile(fileName);
   return fromFile || "Unnamed Candidate";
-}
-
-function detectYears(text: string): number {
-  const lower = text.toLowerCase();
-  // explicit "N+ years of experience"
-  const explicit = lower.match(/(\d{1,2})\s*\+?\s*years?(?:\s+of)?\s+(?:experience|exp)/);
-  if (explicit) return Math.min(40, parseInt(explicit[1], 10));
-
-  // infer from earliest 4-digit year (19xx/20xx) up to current
-  const now = new Date().getFullYear();
-  const years = Array.from(lower.matchAll(/\b(19[89]\d|20[0-3]\d)\b/g))
-    .map((m) => parseInt(m[1], 10))
-    .filter((y) => y >= 1985 && y <= now);
-  if (years.length) {
-    const earliest = Math.min(...years);
-    const span = now - earliest;
-    if (span > 0 && span <= 40) return span;
-  }
-  return 3; // conservative default
 }
 
 function detectLocation(text: string): string {
@@ -211,7 +193,7 @@ export function extractFeatures(rawText: string, fileName: string): ResumeFeatur
 
   const { skills, axisHits } = detectSkills(text);
   const certs = detectCerts(text);
-  const years = detectYears(text);
+  const years = detectYearsOfExperience(text);
   const lower = text.toLowerCase();
 
   const email = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0];

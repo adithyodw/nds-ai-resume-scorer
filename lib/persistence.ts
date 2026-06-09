@@ -2,7 +2,7 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import { get, put } from "@vercel/blob";
+import { get, head, put } from "@vercel/blob";
 import type { Candidate } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -40,24 +40,48 @@ async function writeToFilesystem(candidates: Candidate[]): Promise<boolean> {
 }
 
 async function readFromBlob(): Promise<Candidate[] | null> {
+  // 1) Authenticated private read
   try {
     const result = await get(BLOB_PATHNAME, { access: "private", useCache: false });
-    if (!result || result.statusCode !== 200 || !result.stream) return null;
-    const text = await new Response(result.stream).text();
-    const parsed = JSON.parse(text) as unknown;
-    return Array.isArray(parsed) ? (parsed as Candidate[]) : [];
+    if (result?.statusCode === 200 && result.stream) {
+      const text = await new Response(result.stream).text();
+      const parsed = JSON.parse(text) as unknown;
+      return Array.isArray(parsed) ? (parsed as Candidate[]) : [];
+    }
   } catch {
-    return null;
+    /* fall through */
   }
+
+  // 2) Public blob URL fallback (older writes / public access)
+  try {
+    const meta = await head(BLOB_PATHNAME);
+    const res = await fetch(meta.url, { cache: "no-store" });
+    if (res.ok) {
+      const parsed = (await res.json()) as unknown;
+      return Array.isArray(parsed) ? (parsed as Candidate[]) : [];
+    }
+  } catch {
+    /* not found */
+  }
+
+  return null;
 }
 
 async function writeToBlob(candidates: Candidate[]): Promise<void> {
-  await put(BLOB_PATHNAME, JSON.stringify(candidates), {
-    access: "private",
+  const payload = JSON.stringify(candidates);
+  await put(BLOB_PATHNAME, payload, {
+    access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
   });
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+    const verify = await readFromBlob();
+    if (verify && verify.length === candidates.length) return;
+  }
+  throw new Error("Blob persist verification failed");
 }
 
 /** Load candidates from the active backend (blob on Vercel, file locally). */
