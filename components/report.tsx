@@ -208,12 +208,14 @@ export function Report({
   c,
   onBack,
   onStatus,
+  onSchedule,
   onCompare,
   compareSet,
 }: {
   c: Candidate;
   onBack: () => void;
   onStatus: (id: string, status: CandidateStatus) => void;
+  onSchedule: (id: string) => void;
   onCompare: (id: string) => void;
   compareSet: string[];
 }) {
@@ -516,17 +518,29 @@ export function Report({
               security depth and a live solution-design walkthrough. Validate certification and project claims.
             </p>
             <div style={{ display: "flex", gap: 9, marginTop: 16 }}>
-              <button className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
-                <Icon name="clock" size={14} /> Schedule
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ flex: 1 }}
+                onClick={() => onSchedule(c.id)}
+                disabled={Boolean(c.scheduledAt)}
+              >
+                <Icon name="clock" size={14} /> {c.scheduledAt ? "Scheduled" : "Schedule"}
               </button>
               <button
                 className="btn btn-primary btn-sm"
                 style={{ flex: 1 }}
                 onClick={() => onStatus(c.id, "shortlisted")}
+                disabled={c.status === "shortlisted"}
               >
-                <Icon name="star" size={14} /> Move to shortlist
+                <Icon name="star" size={14} />{" "}
+                {c.status === "shortlisted" ? "Shortlisted" : "Move to shortlist"}
               </button>
             </div>
+            {c.scheduledAt && (
+              <p style={{ fontSize: 11.5, color: "var(--pos)", marginTop: 10 }}>
+                Interview scheduled — WhatsApp alert sent to Adit.
+              </p>
+            )}
           </CardBox>
         </div>
       </div>

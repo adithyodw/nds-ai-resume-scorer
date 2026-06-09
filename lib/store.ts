@@ -22,9 +22,14 @@ async function load(): Promise<Candidate[]> {
   try {
     const raw = await fs.readFile(DATA_FILE, "utf8");
     cache = JSON.parse(raw) as Candidate[];
-  } catch {
-    cache = SEED_CANDIDATES.map((c) => ({ ...c }));
-    await persist();
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      cache = SEED_CANDIDATES.map((c) => ({ ...c }));
+      await persist();
+    } else {
+      cache = [];
+    }
   }
   return cache;
 }
@@ -58,12 +63,39 @@ export async function addCandidates(incoming: Candidate[]): Promise<Candidate[]>
   return [...cache];
 }
 
+function withStatus(c: Candidate, status: CandidateStatus): Candidate {
+  const now = new Date().toISOString();
+  const patch: Candidate = { ...c, status };
+  if (status === "shortlisted" && !c.shortlistedAt) {
+    patch.shortlistedAt = now;
+  }
+  return patch;
+}
+
 export async function setStatus(
   id: string,
   status: CandidateStatus
 ): Promise<Candidate | undefined> {
   const list = await load();
-  const next = list.map((c) => (c.id === id ? { ...c, status } : c));
+  const next = list.map((c) => (c.id === id ? withStatus(c, status) : c));
+  cache = next;
+  await persist();
+  return next.find((c) => c.id === id);
+}
+
+/** Mark shortlisted (if needed) and set interview scheduled timestamp. */
+export async function scheduleCandidate(id: string): Promise<Candidate | undefined> {
+  const list = await load();
+  const now = new Date().toISOString();
+  const next = list.map((c) => {
+    if (c.id !== id) return c;
+    return {
+      ...c,
+      status: "shortlisted" as CandidateStatus,
+      shortlistedAt: c.shortlistedAt ?? now,
+      scheduledAt: now,
+    };
+  });
   cache = next;
   await persist();
   return next.find((c) => c.id === id);

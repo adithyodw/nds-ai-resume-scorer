@@ -91,7 +91,7 @@ export function Dashboard({
           <div className="eyebrow" style={{ marginBottom: 4 }}>
             Tuesday · 9 June 2026
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.025em" }}>Good morning, Farah</h2>
+          <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.025em" }}>Good morning, Mba Icha</h2>
           <p style={{ fontSize: 13.5, color: "var(--tx-2)", marginTop: 3 }}>
             {candidates.length === 0 ? (
               <>No candidates in the pipeline yet — upload résumés to get started.</>

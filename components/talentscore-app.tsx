@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Candidate, CandidateStatus } from "@/lib/types";
-import { fetchCandidates, updateCandidateStatus, deleteCandidates } from "@/lib/api-client";
+import {
+  fetchCandidates,
+  updateCandidateStatus,
+  deleteCandidates,
+  scheduleCandidateInterview,
+  notifyWhatsApp,
+} from "@/lib/api-client";
+import { buildWhatsAppUrl, buildShortlistScheduleMessage, NOTIFY_PHONE } from "@/lib/whatsapp";
 import { Sidebar, Topbar } from "./shell";
 import { Dashboard } from "./dashboard";
 import { UploadCenter } from "./upload";
@@ -38,9 +45,24 @@ export function TalentScoreApp() {
     loadCandidates();
   }, [loadCandidates]);
 
-  // Refresh live data when returning to overview or candidate list.
+  const deepLinkHandled = useRef(false);
   useEffect(() => {
-    if (view === "dashboard" || view === "database") {
+    if (deepLinkHandled.current || loading) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("candidate");
+    if (!id) return;
+    const found = candidates.find((c) => c.id === id);
+    if (found) {
+      deepLinkHandled.current = true;
+      setPrevView("database");
+      setActive(found);
+      setView("report");
+    }
+  }, [candidates, loading]);
+
+  // Refresh live data when returning to data-heavy views.
+  useEffect(() => {
+    if (view === "dashboard" || view === "database" || view === "analytics") {
       loadCandidates();
     }
   }, [view, loadCandidates]);
@@ -79,15 +101,90 @@ export function TalentScoreApp() {
     [view, prevView]
   );
 
-  const setStatus = useCallback(async (id: string, status: CandidateStatus) => {
-    setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, status } : c)));
-    setActive((a) => (a && a.id === id ? { ...a, status } : a));
-    try {
-      await updateCandidateStatus(id, status);
-    } catch {
-      loadCandidates();
-    }
-  }, [loadCandidates]);
+  const mergeCandidate = useCallback((updated: Candidate) => {
+    setCandidates((cs) => cs.map((c) => (c.id === updated.id ? updated : c)));
+    setActive((a) => (a && a.id === updated.id ? updated : a));
+  }, []);
+
+  const setStatus = useCallback(
+    async (id: string, status: CandidateStatus) => {
+      const now = new Date().toISOString();
+      setCandidates((cs) =>
+        cs.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status,
+                shortlistedAt: status === "shortlisted" ? c.shortlistedAt ?? now : c.shortlistedAt,
+              }
+            : c
+        )
+      );
+      setActive((a) =>
+        a && a.id === id
+          ? {
+              ...a,
+              status,
+              shortlistedAt: status === "shortlisted" ? a.shortlistedAt ?? now : a.shortlistedAt,
+            }
+          : a
+      );
+      try {
+        const updated = await updateCandidateStatus(id, status);
+        mergeCandidate(updated);
+      } catch {
+        loadCandidates();
+      }
+    },
+    [loadCandidates, mergeCandidate]
+  );
+
+  const scheduleInterview = useCallback(
+    async (id: string) => {
+      const now = new Date().toISOString();
+      setCandidates((cs) =>
+        cs.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status: "shortlisted" as CandidateStatus,
+                shortlistedAt: c.shortlistedAt ?? now,
+                scheduledAt: now,
+              }
+            : c
+        )
+      );
+      setActive((a) =>
+        a && a.id === id
+          ? {
+              ...a,
+              status: "shortlisted",
+              shortlistedAt: a.shortlistedAt ?? now,
+              scheduledAt: now,
+            }
+          : a
+      );
+      try {
+        const updated = await scheduleCandidateInterview(id);
+        mergeCandidate(updated);
+
+        const origin = window.location.origin;
+        try {
+          const { waUrl, sent } = await notifyWhatsApp(id, origin);
+          if (!sent) window.open(waUrl, "_blank", "noopener,noreferrer");
+        } catch {
+          const fallback = buildWhatsAppUrl(
+            NOTIFY_PHONE,
+            buildShortlistScheduleMessage(updated, origin)
+          );
+          window.open(fallback, "_blank", "noopener,noreferrer");
+        }
+      } catch {
+        loadCandidates();
+      }
+    },
+    [loadCandidates, mergeCandidate]
+  );
 
   const toggleSel = useCallback((id: string) => {
     setCompareSet((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -196,6 +293,7 @@ export function TalentScoreApp() {
         c={active}
         onBack={() => setView(prevView)}
         onStatus={setStatus}
+        onSchedule={scheduleInterview}
         onCompare={(id) => {
           if (!compareSet.includes(id)) toggleSel(id);
         }}

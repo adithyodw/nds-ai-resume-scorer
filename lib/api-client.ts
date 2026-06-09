@@ -21,6 +21,31 @@ export async function updateCandidateStatus(
   return data.candidate as Candidate;
 }
 
+export async function scheduleCandidateInterview(id: string): Promise<Candidate> {
+  const res = await fetch(`/api/candidates/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ schedule: true }),
+  });
+  if (!res.ok) throw new Error("Failed to schedule interview");
+  const data = await res.json();
+  return data.candidate as Candidate;
+}
+
+export async function notifyWhatsApp(
+  candidateId: string,
+  origin: string
+): Promise<{ waUrl: string; sent: boolean }> {
+  const res = await fetch("/api/notify/whatsapp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidateId, origin }),
+  });
+  if (!res.ok) throw new Error("Failed to send WhatsApp notification");
+  const data = await res.json();
+  return { waUrl: data.waUrl as string, sent: Boolean(data.sent) };
+}
+
 export interface UploadResult {
   added: Candidate[];
   results: { fileName: string; ok: boolean; error?: string }[];

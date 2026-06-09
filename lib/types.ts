@@ -66,6 +66,10 @@ export interface Candidate {
   sourceFile?: string;
   /** ISO timestamp the candidate was created/scored. */
   createdAt?: string;
+  /** ISO timestamp when HR moved candidate to shortlist. */
+  shortlistedAt?: string;
+  /** ISO timestamp when an interview was scheduled. */
+  scheduledAt?: string;
 }
 
 export type SuggestionType = "add" | "cert" | "kw" | "word";

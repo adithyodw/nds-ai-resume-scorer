@@ -3,7 +3,13 @@
 import { useMemo } from "react";
 import type { Candidate } from "@/lib/types";
 import { NDS } from "@/lib/nds-data";
-import { avgMatch, computeFunnel, computeRoleDemand, computeCertHeat } from "@/lib/stats";
+import {
+  avgMatch,
+  computeFunnel,
+  computeRoleDemand,
+  computeCertHeat,
+  computeLiveAnalytics,
+} from "@/lib/stats";
 import { Icon, toneColor } from "./primitives";
 import { FunnelChart, CertHeatmap } from "./charts";
 import { SectionCard } from "./section-card";
@@ -53,15 +59,46 @@ export function Analytics({ candidates }: { candidates: Candidate[] }) {
   const funnel = useMemo(() => computeFunnel(candidates), [candidates]);
   const roleDemand = useMemo(() => computeRoleDemand(candidates), [candidates]);
   const certHeat = useMemo(() => computeCertHeat(candidates), [candidates]);
+  const live = useMemo(() => computeLiveAnalytics(candidates), [candidates]);
   const avg = avgMatch(candidates);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 14 }}>
-        <MetricTile label="Avg time to shortlist" value="2.4" suffix="d" sub="↓ 0.6d vs last quarter" tone="var(--pos)" />
-        <MetricTile label="AI screening coverage" value={total > 0 ? 100 : 0} suffix="%" sub={`${total} candidates scored`} />
-        <MetricTile label="Shortlist precision" value="84" suffix="%" sub="advanced to interview" tone="var(--pos)" />
-        <MetricTile label="Offer acceptance" value="71" suffix="%" sub="ASEAN benchmark 64%" />
+        <MetricTile
+          label="Avg time to shortlist"
+          value={live.avgDaysToShortlist ?? "—"}
+          suffix={live.avgDaysToShortlist != null ? "d" : ""}
+          sub={
+            live.shortlisted > 0
+              ? `From ${live.shortlisted} shortlisted candidate${live.shortlisted !== 1 ? "s" : ""}`
+              : "Shortlist candidates to track"
+          }
+          tone="var(--pos)"
+        />
+        <MetricTile
+          label="AI screening coverage"
+          value={live.aiCoverage}
+          suffix="%"
+          sub={`${total} candidate${total !== 1 ? "s" : ""} scored`}
+        />
+        <MetricTile
+          label="Shortlist rate"
+          value={live.shortlistRate}
+          suffix="%"
+          sub={`${live.shortlisted} shortlisted of ${total}`}
+          tone="var(--pos)"
+        />
+        <MetricTile
+          label="Scheduled interviews"
+          value={live.scheduled}
+          suffix=""
+          sub={
+            live.shortlisted > 0
+              ? `${live.scheduleRate}% of shortlisted`
+              : "Schedule from candidate report"
+          }
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 18 }} className="dash-grid">

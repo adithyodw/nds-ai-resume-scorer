@@ -66,3 +66,47 @@ export function computeCertHeat(candidates: Candidate[]): CertHeat[] {
 export function uniqueRoles(candidates: Candidate[]): number {
   return new Set(candidates.map((c) => c.role)).size;
 }
+
+export interface LiveAnalytics {
+  total: number;
+  shortlisted: number;
+  scheduled: number;
+  shortlistRate: number;
+  scheduleRate: number;
+  avgDaysToShortlist: number | null;
+  aiCoverage: number;
+}
+
+export function computeLiveAnalytics(candidates: Candidate[]): LiveAnalytics {
+  const total = candidates.length;
+  const shortlisted = candidates.filter((c) => c.status === "shortlisted").length;
+  const scheduled = candidates.filter((c) => c.scheduledAt).length;
+
+  const shortlistRate = total > 0 ? Math.round((shortlisted / total) * 1000) / 10 : 0;
+  const scheduleRate =
+    shortlisted > 0 ? Math.round((scheduled / shortlisted) * 1000) / 10 : 0;
+
+  const days: number[] = [];
+  for (const c of candidates) {
+    if (!c.shortlistedAt || !c.createdAt) continue;
+    const start = new Date(c.createdAt).getTime();
+    const end = new Date(c.shortlistedAt).getTime();
+    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+      days.push((end - start) / (1000 * 60 * 60 * 24));
+    }
+  }
+  const avgDaysToShortlist =
+    days.length > 0
+      ? Math.round((days.reduce((s, d) => s + d, 0) / days.length) * 10) / 10
+      : null;
+
+  return {
+    total,
+    shortlisted,
+    scheduled,
+    shortlistRate,
+    scheduleRate,
+    avgDaysToShortlist,
+    aiCoverage: total > 0 ? 100 : 0,
+  };
+}

@@ -180,7 +180,7 @@ export function Sidebar({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 6px 2px" }}>
-          <Avatar c={{ initials: "FR" }} size={32} />
+          <Avatar c={{ initials: "MI" }} size={32} />
           <div style={{ lineHeight: 1.2, flex: 1, minWidth: 0 }}>
             <div
               style={{
@@ -191,7 +191,7 @@ export function Sidebar({
                 textOverflow: "ellipsis",
               }}
             >
-              Farah Indrawati
+              Mba Icha
             </div>
             <div style={{ fontSize: 11, color: "var(--tx-2)" }}>HR Lead · NDS</div>
           </div>

@@ -456,6 +456,16 @@ export function Database({
     return list;
   }, [candidates, role, statusF, minExp, sort, query]);
 
+  function handleStatus(id: string, status: CandidateStatus) {
+    onStatus(id, status);
+    if (status === "shortlisted" && statusF === "new") {
+      setStatusF("shortlisted");
+    }
+    if (status === "rejected" && statusF === "new") {
+      setStatusF("rejected");
+    }
+  }
+
   const filteredIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
   const allFilteredSelected =
     filtered.length > 0 && filteredIds.every((id) => selectedIds.includes(id));
@@ -584,7 +594,7 @@ export function Database({
             c={c}
             rank={i + 1}
             onOpen={onOpen}
-            onStatus={onStatus}
+            onStatus={handleStatus}
             selected={selectedIds.includes(c.id)}
             onToggleSel={onToggleSel}
           />
