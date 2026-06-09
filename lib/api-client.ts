@@ -28,6 +28,20 @@ export interface UploadResult {
   summary: { processed: number; scored: number; failed: number };
 }
 
+export async function deleteCandidates(ids: string[]): Promise<number> {
+  const res = await fetch("/api/candidates", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to delete candidates");
+  }
+  const data = await res.json();
+  return data.removed as number;
+}
+
 export async function uploadResumes(files: File[], role?: string): Promise<UploadResult> {
   const form = new FormData();
   files.forEach((f) => form.append("files", f));

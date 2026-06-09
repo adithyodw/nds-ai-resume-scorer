@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Candidate, CandidateStatus } from "@/lib/types";
-import { fetchCandidates, updateCandidateStatus } from "@/lib/api-client";
+import { fetchCandidates, updateCandidateStatus, deleteCandidates } from "@/lib/api-client";
 import { Sidebar, Topbar } from "./shell";
 import { Dashboard } from "./dashboard";
 import { UploadCenter } from "./upload";
@@ -83,8 +83,35 @@ export function TalentScoreApp() {
   }, [loadCandidates]);
 
   const toggleSel = useCallback((id: string) => {
-    setCompareSet((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= 3 ? s : [...s, id]));
+    setCompareSet((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   }, []);
+
+  const setSelection = useCallback((ids: string[]) => {
+    setCompareSet(ids);
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setCompareSet([]);
+  }, []);
+
+  const deleteSelected = useCallback(async () => {
+    const ids = [...compareSet];
+    if (!ids.length) return;
+    const n = ids.length;
+    if (!window.confirm(`Delete ${n} résumé${n > 1 ? "s" : ""}? This cannot be undone.`)) return;
+
+    setCandidates((cs) => cs.filter((c) => !ids.includes(c.id)));
+    setCompareSet([]);
+    if (active && ids.includes(active.id)) {
+      setActive(null);
+      setView("database");
+    }
+    try {
+      await deleteCandidates(ids);
+    } catch {
+      loadCandidates();
+    }
+  }, [compareSet, active, loadCandidates]);
 
   const completeUpload = useCallback(
     (added: Candidate[]) => {
@@ -122,8 +149,11 @@ export function TalentScoreApp() {
         query={query}
         onOpen={openCandidate}
         onStatus={setStatus}
-        compareSet={compareSet}
+        selectedIds={compareSet}
         onToggleSel={toggleSel}
+        onSetSelection={setSelection}
+        onClearSelection={clearSelection}
+        onDeleteSelected={deleteSelected}
         onCompare={goCompare}
         setView={setView}
       />

@@ -74,3 +74,15 @@ export async function removeCandidate(id: string): Promise<void> {
   cache = list.filter((c) => c.id !== id);
   await persist();
 }
+
+/** Remove multiple candidates by id; returns how many were deleted. */
+export async function removeCandidates(ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const drop = new Set(ids);
+  const list = await load();
+  const next = list.filter((c) => !drop.has(c.id));
+  const removed = list.length - next.length;
+  cache = next;
+  await persist();
+  return removed;
+}

@@ -324,13 +324,58 @@ function CandidateRow({
   );
 }
 
+function SelectCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+  title,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  title?: string;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.dataset.indeterminate = indeterminate ? "true" : "false";
+  }, [indeterminate]);
+  return (
+    <button
+      ref={ref}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange();
+      }}
+      title={title}
+      style={{
+        width: 18,
+        height: 18,
+        borderRadius: 5,
+        border: `1.5px solid ${checked || indeterminate ? "var(--ac)" : "var(--line-2)"}`,
+        background: checked ? "var(--ac)" : indeterminate ? "color-mix(in srgb, var(--ac) 35%, transparent)" : "transparent",
+        display: "grid",
+        placeItems: "center",
+        flexShrink: 0,
+      }}
+    >
+      {checked && <Icon name="check" size={12} stroke={3} style={{ color: "#fff" }} />}
+      {!checked && indeterminate && (
+        <span style={{ width: 8, height: 2, borderRadius: 1, background: "var(--ac-hi)" }} />
+      )}
+    </button>
+  );
+}
+
 export function Database({
   candidates,
   query,
   onOpen,
   onStatus,
-  compareSet,
+  selectedIds,
   onToggleSel,
+  onSetSelection,
+  onClearSelection,
+  onDeleteSelected,
   onCompare,
   setView,
 }: {
@@ -338,8 +383,11 @@ export function Database({
   query: string;
   onOpen: (c: Candidate) => void;
   onStatus: (id: string, status: CandidateStatus) => void;
-  compareSet: string[];
+  selectedIds: string[];
   onToggleSel: (id: string) => void;
+  onSetSelection: (ids: string[]) => void;
+  onClearSelection: () => void;
+  onDeleteSelected: () => void;
   onCompare: () => void;
   setView: (v: string) => void;
 }) {
@@ -408,6 +456,22 @@ export function Database({
     return list;
   }, [candidates, role, statusF, minExp, sort, query]);
 
+  const filteredIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
+  const allFilteredSelected =
+    filtered.length > 0 && filteredIds.every((id) => selectedIds.includes(id));
+  const someFilteredSelected = filteredIds.some((id) => selectedIds.includes(id));
+
+  function toggleSelectAllFiltered() {
+    if (allFilteredSelected) {
+      const remove = new Set(filteredIds);
+      onSetSelection(selectedIds.filter((id) => !remove.has(id)));
+    } else {
+      const next = new Set(selectedIds);
+      filteredIds.forEach((id) => next.add(id));
+      onSetSelection([...next]);
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="fade-up" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
@@ -427,7 +491,7 @@ export function Database({
         <Dropdown label="Sort" icon="filter" value={sort} options={sortOpts} onChange={setSort} />
       </div>
 
-      {compareSet.length > 0 && (
+      {selectedIds.length > 0 && (
         <div
           className="pop-in"
           style={{
@@ -438,24 +502,35 @@ export function Database({
             borderRadius: 12,
             background: "var(--ac-soft)",
             border: "1px solid color-mix(in srgb, var(--ac) 40%, transparent)",
+            flexWrap: "wrap",
           }}
         >
-          <Icon name="compare" size={18} style={{ color: "var(--ac-hi)" }} />
+          <Icon name="check" size={18} style={{ color: "var(--ac-hi)" }} />
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>
-            {compareSet.length} candidate{compareSet.length > 1 ? "s" : ""} selected for comparison
+            {selectedIds.length} candidate{selectedIds.length > 1 ? "s" : ""} selected
           </span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 9 }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => compareSet.forEach((id) => onToggleSel(id))}
-            >
+          {!allFilteredSelected && filtered.length > 0 && (
+            <button className="btn btn-ghost btn-sm" onClick={toggleSelectAllFiltered}>
+              Select all ({filtered.length})
+            </button>
+          )}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 9, flexWrap: "wrap" }}>
+            <button className="btn btn-ghost btn-sm" onClick={onClearSelection}>
               Clear
             </button>
             <button
+              className="btn btn-ghost btn-sm"
+              onClick={onDeleteSelected}
+              style={{ color: "var(--neg)" }}
+            >
+              <Icon name="x" size={15} /> Delete
+            </button>
+            <button
               className="btn btn-primary btn-sm"
-              disabled={compareSet.length < 2}
+              disabled={selectedIds.length < 2 || selectedIds.length > 3}
               onClick={onCompare}
-              style={{ opacity: compareSet.length < 2 ? 0.5 : 1 }}
+              style={{ opacity: selectedIds.length < 2 || selectedIds.length > 3 ? 0.5 : 1 }}
+              title={selectedIds.length > 3 ? "Select 2–3 candidates to compare" : undefined}
             >
               Compare <Icon name="chevR" size={14} />
             </button>
@@ -477,7 +552,12 @@ export function Database({
           color: "var(--tx-3)",
         }}
       >
-        <span></span>
+        <SelectCheckbox
+          checked={allFilteredSelected}
+          indeterminate={someFilteredSelected && !allFilteredSelected}
+          onChange={toggleSelectAllFiltered}
+          title={allFilteredSelected ? "Deselect all" : "Select all visible"}
+        />
         <span style={{ textAlign: "center" }}>#</span>
         <span>Candidate</span>
         <span>Role · Location</span>
@@ -505,7 +585,7 @@ export function Database({
             rank={i + 1}
             onOpen={onOpen}
             onStatus={onStatus}
-            selected={compareSet.includes(c.id)}
+            selected={selectedIds.includes(c.id)}
             onToggleSel={onToggleSel}
           />
         ))}
