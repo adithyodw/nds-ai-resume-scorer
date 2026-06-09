@@ -7,9 +7,11 @@
 import type { Candidate, CandidateStatus } from "./types";
 import { SEED_CANDIDATES } from "./seed";
 import {
+  hasBlobCredentials,
   isVercelRuntime,
   loadCandidates as readStore,
   saveCandidates,
+  storageMode,
   useBlobStore,
 } from "./persistence";
 
@@ -119,7 +121,11 @@ export async function removeCandidates(ids: string[]): Promise<number> {
 
 /** True when running on Vercel without durable storage configured. */
 export function storageMisconfigured(): boolean {
-  return isVercelRuntime() && !useBlobStore();
+  return isVercelRuntime() && !hasBlobCredentials();
+}
+
+export function getStorageInfo(): { mode: string; configured: boolean } {
+  return { mode: storageMode(), configured: hasBlobCredentials() };
 }
 
 /** Restore candidates only when the server store is empty (client cache recovery). */

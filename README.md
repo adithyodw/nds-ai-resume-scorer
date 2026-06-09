@@ -76,10 +76,13 @@ design-reference/     # Original Claude Code UI prototype (reference only)
 Uploaded CVs **must** use durable storage on serverless. Connect **Vercel Blob** to the project:
 
 1. Vercel Dashboard → your project → **Storage** → **Create Database** → **Blob**
-2. Connect the store to `nds-ai-resume-scorer` — this sets `BLOB_READ_WRITE_TOKEN` automatically
-3. Redeploy
+2. **Connect** the store to the `nds-ai-resume-scorer` **project** (not just create a standalone store)
+3. Confirm env vars exist: `BLOB_READ_WRITE_TOKEN` and/or `BLOB_STORE_ID` (Settings → Environment Variables)
+4. **Redeploy** after connecting — env vars are only injected on new deployments
+5. Verify: open `https://your-app.vercel.app/api/storage/health` — `blobConfigured` must be `true`
+6. Upload a CV — the Blob browser should show `nds-talentscore/candidates.json`
 
-Without Blob, uploads only survive the current serverless instance and disappear on navigation.
+Without a connected Blob store, uploads cannot persist across refreshes.
 
 ```bash
 npm run build

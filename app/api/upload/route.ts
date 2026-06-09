@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { parseUpload, isSupported, type ParsedDoc } from "@/lib/parse";
 import { scoreResume, llmEnabled } from "@/lib/scoring";
-import { addCandidates, storageMisconfigured } from "@/lib/store";
+import { addCandidates, getStorageInfo, storageMisconfigured } from "@/lib/store";
 import type { Candidate } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -97,13 +97,37 @@ export async function POST(req: Request) {
     }
   }
 
-  if (scored.length) await addCandidates(scored);
+  let persisted = 0;
+  let storageError: string | null = null;
+  const storage = getStorageInfo();
+
+  if (scored.length) {
+    try {
+      const saved = await addCandidates(scored);
+      persisted = saved.length;
+    } catch (err) {
+      storageError = err instanceof Error ? err.message : "Failed to persist candidates";
+      return NextResponse.json(
+        {
+          error: storageError,
+          storage,
+          storageWarning: storageMisconfigured() ? "blob_not_configured" : "blob_write_failed",
+          added: [],
+          results,
+          summary: { processed: results.length, scored: 0, failed: results.length },
+        },
+        { status: 503 }
+      );
+    }
+  }
 
   return NextResponse.json({
     added: scored,
     results,
     engine: llmEnabled() ? "llm+rules" : "rules",
-    storageWarning: storageMisconfigured() ? "blob_not_configured" : null,
+    storage,
+    persisted,
+    storageWarning: storageMisconfigured() ? "blob_not_configured" : storageError,
     summary: {
       processed: results.length,
       scored: scored.length,
