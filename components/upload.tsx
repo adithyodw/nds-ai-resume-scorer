@@ -445,11 +445,19 @@ export function UploadCenter({ onComplete }: { onComplete: (added: Candidate[]) 
             <Icon name="upload" size={16} /> Upload more
           </button>
           {single ? (
-            <button className="btn btn-primary" onClick={() => onComplete(results)}>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => void onComplete(results)}
+            >
               <Icon name="eye" size={16} /> View full report
             </button>
           ) : (
-            <button className="btn btn-primary" onClick={() => onComplete(results)}>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => void onComplete(results)}
+            >
               <Icon name="database" size={16} /> View all in database
             </button>
           )}

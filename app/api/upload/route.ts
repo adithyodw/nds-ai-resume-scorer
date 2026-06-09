@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { parseUpload, isSupported, type ParsedDoc } from "@/lib/parse";
 import { scoreResume, llmEnabled } from "@/lib/scoring";
-import { addCandidates } from "@/lib/store";
+import { addCandidates, storageMisconfigured } from "@/lib/store";
 import type { Candidate } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -103,6 +103,7 @@ export async function POST(req: Request) {
     added: scored,
     results,
     engine: llmEnabled() ? "llm+rules" : "rules",
+    storageWarning: storageMisconfigured() ? "blob_not_configured" : null,
     summary: {
       processed: results.length,
       scored: scored.length,

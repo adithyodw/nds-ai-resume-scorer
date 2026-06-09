@@ -35,12 +35,17 @@ export function TalentScoreApp() {
       if (!res.ok) throw new Error("Failed to load candidates");
       const data = await res.json();
       const list = data.candidates as Candidate[];
+      const storageWarning = Boolean(data.storageWarning);
       setCandidates((prev) => {
-        if (!opts?.force && list.length === 0 && prev.length > 0) return prev;
+        if (list.length === 0 && prev.length > 0 && (!opts?.force || storageWarning)) {
+          return prev;
+        }
         return list;
       });
+      return list;
     } catch {
       /* keep existing list on transient errors */
+      return null;
     } finally {
       setLoading(false);
     }
@@ -225,23 +230,28 @@ export function TalentScoreApp() {
   const completeUpload = useCallback(
     async (added: Candidate[]) => {
       if (!added.length) return;
-      try {
-        await loadCandidates({ force: true });
-        return;
-      } catch {
-        setCandidates((cs) => {
-          const ids = new Set(cs.map((c) => c.id));
-          const fresh = added.filter((c) => !ids.has(c.id));
-          return [...fresh, ...cs];
-        });
-      }
+
+      setCandidates((cs) => {
+        const ids = new Set(cs.map((c) => c.id));
+        const fresh = added.filter((c) => !ids.has(c.id));
+        return [...fresh, ...cs];
+      });
+
       if (added.length === 1) {
-        openCandidate(added[0]);
+        setPrevView("upload");
+        setActive(added[0]);
+        setView("report");
       } else {
         setView("database");
       }
+
+      const list = await loadCandidates({ force: true });
+      if (added.length === 1 && list?.length) {
+        const synced = list.find((c) => c.id === added[0].id) ?? added[0];
+        setActive(synced);
+      }
     },
-    [openCandidate]
+    [loadCandidates]
   );
 
   function goCompare() {

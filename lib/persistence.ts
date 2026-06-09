@@ -2,7 +2,7 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import { head, put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 import type { Candidate } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -41,10 +41,10 @@ async function writeToFilesystem(candidates: Candidate[]): Promise<boolean> {
 
 async function readFromBlob(): Promise<Candidate[] | null> {
   try {
-    const meta = await head(BLOB_PATHNAME);
-    const res = await fetch(meta.url, { cache: "no-store" });
-    if (!res.ok) return [];
-    const parsed = (await res.json()) as unknown;
+    const result = await get(BLOB_PATHNAME, { access: "private", useCache: false });
+    if (!result || result.statusCode !== 200 || !result.stream) return null;
+    const text = await new Response(result.stream).text();
+    const parsed = JSON.parse(text) as unknown;
     return Array.isArray(parsed) ? (parsed as Candidate[]) : [];
   } catch {
     return null;
